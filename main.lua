@@ -559,6 +559,9 @@ local function mainLoop()
     sleep(0.1)
 end
 
+-- Write initial state before starting audio script
+updateAudioState()
+
 -- Instead of shell.run, we use shell.openTab for a new background tab
 local audioHandle = shell.openTab("audio.lua", "bg")
 if not audioHandle then
