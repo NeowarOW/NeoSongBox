@@ -26,8 +26,16 @@ for i = 1, #speakers do
     selected_speakers[i] = speakers[i]
 end
 
+local function waitForStateFile()
+    while not fs.exists("audio_state.txt") do
+        sleep(0.5)  -- Wait for the file to exist
+    end
+    print("State file now exists")
+end
+
 -- Define fetchAudioState before it's used
 local function fetchAudioState()
+    waitForStateFile()  -- Ensure the file exists
     if fs.exists("audio_state.txt") then
         local file = fs.open("audio_state.txt", "r")
         local state = textutils.unserialise(file.readAll())
@@ -38,7 +46,6 @@ local function fetchAudioState()
     return {playing = false, now_playing = {}, queue = {}, looping = false, volume = 1.0}
 end
 
--- Now you can define functions that use fetchAudioState
 local function playAudioChunk(audio_chunk)
     for _, speaker in pairs(selected_speakers) do
         local state = fetchAudioState()
@@ -49,4 +56,100 @@ local function playAudioChunk(audio_chunk)
     end
 end
 
--- ... rest of the script
+local function playAudio()
+    while true do
+        local state = fetchAudioState()
+        playing = state.playing
+        now_playing = state.now_playing
+        queue = state.queue
+        looping = state.looping
+
+        if playing and now_playing and now_playing.id then
+            if playing_id ~= now_playing.id then
+                playing_id = now_playing.id
+                last_download_url = api_base_url .. "?id=" .. textutils.urlEncode(playing_id)
+                playing_status = 0
+                needs_next_chunk = 1
+
+                http.request({url = last_download_url, binary = true})
+            end
+            if playing_status == 1 and needs_next_chunk == 1 then
+                while true do
+                    local chunk = player_handle.read(size)
+                    if not chunk then
+                        if looping then
+                            playing_id = nil
+                        else
+                            if #queue > 0 then
+                                now_playing = table.remove(queue, 1)
+                                playing_id = nil
+                            else
+                                now_playing = nil
+                                playing = false
+                                playing_id = nil
+                            end
+                            break
+                        end
+                    else
+                        if start then
+                            chunk, start = start .. chunk, nil
+                            size = size + 4
+                        end
+                        buffer = decoder(chunk)
+                        playAudioChunk(buffer)
+                        if needs_next_chunk == 2 then
+                            needs_next_chunk = 1
+                            break
+                        end
+                    end
+                end
+            end
+        else
+            print("Playback stopped: ", now_playing and now_playing.name or "No track")
+            for _, speaker in pairs(selected_speakers) do
+                speaker.stop()
+            end
+            playing_id = nil
+            player_handle = nil
+            start = nil
+            size = nil
+            decoder = nil
+            needs_next_chunk = 0
+            buffer = nil
+        end
+        sleep(0.1)  -- Prevent busy-waiting, check state often
+    end
+end
+
+local function handleEvents()
+    while true do
+        local event, url, handle = os.pullEvent()
+        if event == "http_success" and url == last_download_url then
+            player_handle = handle
+            start = player_handle.read(4)
+            size = 16 * 1024 - 4
+            if start == "RIFF" then
+                error("WAV not supported!")
+            end
+            playing_status = 1
+            decoder = require "cc.audio.dfpwm".make_decoder()
+        elseif event == "http_failure" and url == last_download_url then
+            print("Failed to fetch audio: ", url)
+            if #queue > 0 then
+                now_playing = table.remove(queue, 1)
+                playing_id = nil
+            else
+                now_playing = nil
+                playing = false
+                playing_id = nil
+            end
+        elseif event == "speaker_audio_empty" then
+            if needs_next_chunk == 2 then
+                needs_next_chunk = 3
+            end
+        end
+    end
+end
+
+-- Run both the audio playing loop and event handling in parallel
+parallel.waitForAll(playAudio, handleEvents)
