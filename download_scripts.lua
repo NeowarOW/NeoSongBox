@@ -3,12 +3,13 @@ local mainUrl = "https://raw.githubusercontent.com/NeowarOW/NeoSongBox/main/main
 local audioUrl = "https://raw.githubusercontent.com/NeowarOW/NeoSongBox/main/audio.lua"
 
 -- Download main.lua
-shell.run("wget", mainUrl, "main.lua")
+local success = shell.run("wget", mainUrl, "main.lua")
 
 -- Download audio.lua
-shell.run("wget", audioUrl, "audio.lua")
+local success2 = shell.run("wget", audioUrl, "audio.lua")
 
-print("Scripts downloaded successfully.")
-
-
-
+if success and success2 then
+    print("C'est bon c'est DL mon pote !.")
+else
+    print("Euhh marche pas ton DL là !.")
+end
