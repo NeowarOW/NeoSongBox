@@ -66,7 +66,8 @@ local function updateAudioState()
         playing = playing,
         now_playing = now_playing or {},
         queue = queue,
-        looping = looping
+        looping = looping,
+        volume = volume
     }))
     file.close()
 end
@@ -371,9 +372,16 @@ local function mainLoop()
                 if y == 8 or y == 9 then
                     if x == width - 3 then  -- decrease volume
                         volume = math.max(0, volume - 0.1)
+                        for _, speaker in pairs(selected_speakers) do
+                            speaker.setVolume(volume)
+                        end
                     elseif x == width - 3 then  -- increase volume
                         volume = math.min(1, volume + 0.1)
+                        for _, speaker in pairs(selected_speakers) do
+                            speaker.setVolume(volume)
+                        end
                     end
+                    updateAudioState()
                     redrawScreen()
                 end
             end
@@ -429,9 +437,9 @@ local function mainLoop()
                                 playing = false
                                 animate = true
                                 for _, speaker in pairs(selected_speakers) do
-                                    speaker.stop()  -- Stop audio on selected speakers immediately
+                                    speaker.stop()
                                 end
-                                updateAudioState()  -- Update the state for audio.lua to read
+                                updateAudioState()
                             else
                                 if now_playing ~= nil then
                                     playing = true
@@ -551,8 +559,11 @@ local function mainLoop()
     sleep(0.1)
 end
 
--- Start audio playback in background
-shell.run("bg", "lua", "audio.lua")
+-- Instead of shell.run, we use shell.openTab for a new background tab
+local audioHandle = shell.openTab("audio.lua", "bg")
+if not audioHandle then
+    error("Failed to start audio script")
+end
 
 -- Run the main loop
 parallel.waitForAny(mainLoop, searchInput)
