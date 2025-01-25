@@ -28,6 +28,8 @@ end
 
 local function playAudioChunk(audio_chunk)
     for _, speaker in pairs(selected_speakers) do
+        local state = fetchAudioState()
+        speaker.setVolume(state.volume)
         while not speaker.playAudio(audio_chunk) do
             sleep(0.05)
         end
@@ -42,7 +44,7 @@ local function fetchAudioState()
         print("Fetched Audio State: ", textutils.serialise(state)) -- Debug print
         return state
     end
-    return {playing = false, now_playing = {}, queue = {}, looping = false}
+    return {playing = false, now_playing = {}, queue = {}, looping = false, volume = 1.0}
 end
 
 local function playAudio()
@@ -94,12 +96,10 @@ local function playAudio()
                 end
             end
         else
-            -- Stop audio if not playing
             print("Playback stopped: ", now_playing and now_playing.name or "No track")
             for _, speaker in pairs(selected_speakers) do
                 speaker.stop()
             end
-            -- Clear current playback state
             playing_id = nil
             player_handle = nil
             start = nil
