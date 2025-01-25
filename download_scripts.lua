@@ -9,3 +9,6 @@ shell.run("wget", mainUrl, "main.lua")
 shell.run("wget", audioUrl, "audio.lua")
 
 print("Scripts downloaded successfully.")
+
+
+
