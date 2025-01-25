@@ -1,6 +1,6 @@
 -- URLs to the raw files on GitHub or Gist
-local mainUrl = "URL_TO_MAIN_LUA"
-local audioUrl = "URL_TO_AUDIO_LUA"
+local mainUrl = "https://github.com/NeowarOW/NeoSongBox/blob/main/main.lua"
+local audioUrl = "https://github.com/NeowarOW/NeoSongBox/blob/main/audio.lua"
 
 -- Download main.lua
 shell.run("wget", mainUrl, "main.lua")
